@@ -1,0 +1,150 @@
+{
+  "alert": {
+    "alertRuleTags": {},
+    "conditions": [
+      {
+        "evaluator": {
+          "params": [
+            1
+          ],
+          "type": "lt"
+        },
+        "operator": {
+          "type": "and"
+        },
+        "query": {
+          "params": [
+            "A",
+            "5m",
+            "now"
+          ]
+        },
+        "reducer": {
+          "params": [],
+          "type": "sum"
+        },
+        "type": "query"
+      }
+    ],
+    "executionErrorState": "alerting",
+    "for": "5m",
+    "frequency": "1m",
+    "handler": 1,
+    "message": "EDR Connect pod is down",
+    "name": "EDR Connect pod's Health-check alert",
+    "noDataState": "no_data",
+    "notifications": [
+      {
+        "uid": "hiQ9s2UGk"
+      }
+    ]
+  },
+  "aliasColors": {},
+  "bars": false,
+  "dashLength": 10,
+  "dashes": false,
+  "datasource": "<DATA_SOURCE>",
+  "description": "",
+  "fieldConfig": {
+    "defaults": {
+      "custom": {}
+    },
+    "overrides": []
+  },
+  "fill": 3,
+  "fillGradient": 0,
+  "gridPos": {
+    "h": 9,
+    "w": 24,
+    "x": 0,
+    "y": 0
+  },
+  "hiddenSeries": false,
+  "id": 23763571993,
+  "legend": {
+    "avg": false,
+    "current": false,
+    "max": false,
+    "min": false,
+    "show": true,
+    "total": false,
+    "values": false
+  },
+  "lines": true,
+  "linewidth": 1,
+  "nullPointMode": "null",
+  "options": {
+    "alertThreshold": false
+  },
+  "percentage": false,
+  "pluginVersion": "7.4.3",
+  "pointradius": 2,
+  "points": false,
+  "renderer": "flot",
+  "repeat": "pod_name",
+  "seriesOverrides": [],
+  "spaceLength": 10,
+  "stack": false,
+  "steppedLine": false,
+  "targets": [
+    {
+      "expr": "count(kube_pod_info{pod=~\"edr-connect.*\"}) by (pod_ip)",
+      "hide": false,
+      "interval": "",
+      "legendFormat": "{{instance}}",
+      "queryType": "randomWalk",
+      "refId": "A"
+    }
+  ],
+  "thresholds": [
+    {
+      "value": 1,
+      "op": "lt",
+      "visible": true,
+      "fill": false,
+      "line": false,
+      "colorMode": "critical"
+    }
+  ],
+  "timeFrom": null,
+  "timeRegions": [],
+  "timeShift": null,
+  "title": "EDR Connect pod's Health-check",
+  "tooltip": {
+    "shared": true,
+    "sort": 0,
+    "value_type": "individual"
+  },
+  "type": "graph",
+  "xaxis": {
+    "buckets": null,
+    "mode": "time",
+    "name": null,
+    "show": true,
+    "values": []
+  },
+  "yaxes": [
+    {
+      "$$hashKey": "object:174",
+      "format": "short",
+      "label": null,
+      "logBase": 1,
+      "max": null,
+      "min": null,
+      "show": true
+    },
+    {
+      "$$hashKey": "object:175",
+      "format": "short",
+      "label": null,
+      "logBase": 1,
+      "max": null,
+      "min": null,
+      "show": true
+    }
+  ],
+  "yaxis": {
+    "align": false,
+    "alignLevel": null
+  }
+}
