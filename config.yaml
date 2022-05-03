@@ -60,3 +60,7 @@ type: <EDR_TYPE>
 ## The number of times we should retry to fetch a file before block listing it.
 ## default: 3
 #fetch_num_of_retires: <FETCH_NUM_OF_RETRIES>
+
+# The password for file fetches from S1
+# default: Infected1234
+#fetch_file_password: <FETCH_FILE_PASSWORD>
