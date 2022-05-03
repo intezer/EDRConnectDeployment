@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edr-connect
+  namespace: intezer-edr-connect
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: edr-connect
+  template:
+    metadata:
+      name: edr-connect
+      labels:
+        app: edr-connect
+        env: intezer-edr-connect
+    spec:
+      volumes:
+        - name: config-volume
+          configMap:
+            name: edr-connect
+      imagePullSecrets:
+        - name: registry-secret
+      nodeSelector:
+        agentpool: <AGENT_POOL>
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: edr-connect
+          volumeMounts:
+            - name: config-volume
+              mountPath: /code/config
+          image: intezer/edr-connect:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 0.1
+              memory: 0.2Gi
