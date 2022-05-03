@@ -1,0 +1,62 @@
+## Authentication info
+## Varies between different EDR types:
+## S1 Example:
+#authentication_info:
+#  edr_api_key: <EDR_API_KEY>
+#  edr_base_address: <EDR_BASE_ADDRESS>
+
+## CS Example:
+authentication_info:
+  client_id: <EDR_CLIENT_ID>
+  client_secret: <EDR_CLIENT_SECRET>
+
+## Your Intezer Analyze API key
+intezer_api_key: <INTEZER_API_KEY>
+
+## Your EDR Type
+## options: S1, CS
+type: <EDR_TYPE>
+
+
+
+## ssl verification for edr requests
+## options: true, false
+## default: true.
+#ssl_verification: <SSL_VERIFICATION>
+
+
+## The Connector fetches all the alerts that were created in the last <latest_edr_alerts_limit_in_hours> hours
+## The app recognizes which alerts were already handled and will not reanalyze them
+## This mainly influences 2 scenarios:
+## 1. When running this app for the first time, how far back do you want to analyze your alerts
+## 2. How long should we retry in case the analysis failed for some reason
+##   (the endpoint machine is down so we couldn't fetch the file, timeout during fetching file etc.)
+## default: 72 (hours)
+#latest_edr_alerts_limit_in_hours: <LATEST_EDR_ALERTS_LIMIT_IN_HOURS>
+
+
+## In order to lower quota consumption, The connector will try to use your previous analyses, if they exist
+## This configuration influences how long your analyses remain valid before creating a new analysis
+## Lower this to get the most up-to-date analyses
+## Raise this to lower quota consumption even more (we would not advise rasing above 30)
+## options: 1-90 (days)
+## default: 30 (days)
+#latest_analysis_limit_in_days: <LATEST-ANALYSIS-LIMIT_IN_DAYS>
+
+## The cooldown between each iteration of the app
+## After fetching and analyzing your analyses, the app goes to sleep before starting over
+## Raise this is order to lower the number for requests to your EDR
+## Lower this for faster notes and less 'dead time'
+## options: 0-∞ (minutes)
+## default: 3 (minutes)
+#cooldown_in_minutes: <COOLDOWN_BETWEEN_RUNS_IN_MINUTES>
+
+
+## HTTP timeout for requests to EDR
+## default: 60 (seconds)
+#http_timeout_in_seconds: <HTTP_TIMEOUT_IN_SECONDS>
+
+
+## The number of times we should retry to fetch a file before block listing it.
+## default: 3
+#fetch_num_of_retires: <FETCH_NUM_OF_RETRIES>
