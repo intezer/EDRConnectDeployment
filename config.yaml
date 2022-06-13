@@ -17,7 +17,10 @@ intezer_api_key: <INTEZER_API_KEY>
 ## options: S1, CS
 type: <EDR_TYPE>
 
-
+## App Mode
+## options: CLOUD, ON_PREM
+## default: CLOUD
+app_mode: <APP_MODE>
 
 ## ssl verification for edr requests
 ## options: true, false
