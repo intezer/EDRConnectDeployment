@@ -37,6 +37,6 @@ catch {
     exit 1
 }
 
-Start-Process -FilePath $ScannerFilePath -Wait -NoNewWindow -ArgumentList "-k", $ApiKey
+Start-Process -FilePath $ScannerFilePath -NoNewWindow -ArgumentList "-k", $ApiKey
 
 Remove-Item -Path $ScannerFilePath -Force
