@@ -1,0 +1,33 @@
+$filePath = $args[0] | ConvertFrom-Json | Select -ExpandProperty 'file_path'
+$api_key = $args[0] | ConvertFrom-Json | Select -ExpandProperty 'api_key'
+$filePath = $filePath -replace "Intezer File Upload: "
+add-type -AssemblyName System.Net.Http
+
+$headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+$headers.Add("Content-Type", "application/json")
+$body = "{`n	`"api_key`": `"{$api_key}`"`n}"
+$response = Invoke-RestMethod 'https://analyze.intezer.com/api/v2-0/get-access-token' -Method 'POST' -Headers $headers -Body $body
+$access_token = $response.result
+$access_token = "Bearer $access_token"
+
+$headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+$headers.Add("Authorization", $access_token)
+$headers.Add("Content-Type", "multipart/form-data")
+
+$multipartContent = [System.Net.Http.MultipartFormDataContent]::new()
+
+$fileBytes = [System.IO.File]::ReadAllBytes($FilePath);
+$enc = [System.Text.Encoding]::GetEncoding("iso-8859-1")
+    $fileEnc = $enc.GetString($fileBytes)
+$boundary = [System.Guid]::NewGuid().ToString(); 
+$LF = "`r`n";
+
+$bodyLines = ( 
+    "--$boundary",
+    "Content-Disposition: form-data; name=`"file`"; filename=`"cs_file_to_upload`"",
+    "Content-Type: application/octet-stream$LF",
+    "$fileEnc",
+    "--$boundary--$LF" 
+) -join $LF
+
+Invoke-RestMethod -Uri 'https://analyze.intezer.com/api/v2-0/analyze' -Method Post -Headers $headers -ContentType "multipart/form-data; boundary=`"$boundary`"" -Body $bodyLines
