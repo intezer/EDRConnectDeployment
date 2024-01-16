@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# This script downloads the Intezer Linux Endpoint Scanner and runs it.
+# It requires an Intezer API key as an argument.
+# The script will download the scanner to the current directory and execute it, then delete the scanner.
+
 set -e
 INTEZER_API_KEY="$1"
 
@@ -91,3 +96,4 @@ else
 fi
 
 ./intezer-scanner -k "$INTEZER_API_KEY"
+rm intezer-scanner
