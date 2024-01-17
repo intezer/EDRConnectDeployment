@@ -79,11 +79,8 @@ get_with_curl() {
   fi
 }
 
-
-# if local file doesnt exist, create it and set permissions to root only
-if [ ! -f "intezer-scanner" ]; then
-    touch intezer-scanner
-fi
+rm -f intezer-scanner
+touch intezer-scanner
 chmod 700 intezer-scanner
 
 if command -v curl >/dev/null 2>&1; then
@@ -96,4 +93,4 @@ else
 fi
 
 ./intezer-scanner -k "$INTEZER_API_KEY"
-rm intezer-scanner
+rm -f intezer-scanner
