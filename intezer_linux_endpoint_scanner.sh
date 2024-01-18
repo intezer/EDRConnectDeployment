@@ -4,11 +4,14 @@
 # It requires an Intezer API key as an argument.
 # The script will download the scanner to the current directory and execute it, then delete the scanner.
 
-set -e
+set -eou pipefail
+
+
 INTEZER_API_KEY=""
 PROXY_URL=""
 PROXY_USER=""
 PROXY_PASSWORD=""
+JWT_TOKEN=""
 
 while [[ $# -gt 0 ]]; do
     key="$1"
@@ -54,23 +57,22 @@ fi
 get_access_token() {
     get_token_url="https://analyze.intezer.com/api/v2-0/get-access-token"
     get_access_token_response=""
+    proxy_args=""
+
 
     if command -v curl >/dev/null 2>&1; then
         if should_use_proxy; then
-            if should_use_proxy_credentials; then
-                get_access_token_response=$(curl -s -x "$PROXY_URL" -U "$PROXY_USER:$PROXY_PASSWORD" -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
-            else
-                get_access_token_response=$(curl -s -x "$PROXY_URL" -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
-            fi
-        else
-            get_access_token_response=$(curl -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+        proxy_args="-x $PROXY_URL"
+        if should_use_proxy_credentials; then
+            proxy_args="$proxy_args -U $PROXY_USER:$PROXY_PASSWORD"
         fi
+        get_access_token_response=$(curl $proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+    fi
     elif command -v wget >/dev/null 2>&1; then
         if should_use_proxy; then
             if should_use_proxy_credentials; then
-                get_access_token_response=$(https_proxy=$PROXY_URL wget -q -O - --proxy-user="$PROXY_USER" --proxy-password="$PROXY_PASSWORD" "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
-            else
-                get_access_token_response=$(https_proxy=$PROXY_URL wget -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
+                proxy_args="--proxy-user=$PROXY_USER --proxy-password=$PROXY_PASSWORD"
+                get_access_token_response=$(https_proxy=$PROXY_URL wget $proxy_args -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
             fi
         else
             get_access_token_response=$(wget -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
@@ -155,6 +157,31 @@ get_with_curl() {
     fi
 }
 
+
+run_scanner() {
+    local scanner_cmd="./intezer-scanner -k \"$INTEZER_API_KEY\""
+    local proxy_args=""
+    local proxy_url_without_protocol="${PROXY_URL#*://}"
+    local proxy_protocol="${PROXY_URL%://*}"
+
+    # scanner gets proxy as https://user:pass@url:port
+    if should_use_proxy; then
+        if should_use_proxy_credentials; then
+            proxy_args="-p $proxy_protocol://$PROXY_USER:$PROXY_PASSWORD@$proxy_url_without_protocol"
+        else
+            proxy_args="-p $proxy_protocol://$proxy_url_without_protocol"
+        fi
+    fi
+
+    eval "$scanner_cmd $proxy_args"
+
+    if [ $? -ne 0 ]; then
+        echo "Error: Intezer scanner execution failed." >&2
+        exit 1
+    fi
+}
+
+
 rm -f intezer-scanner
 touch intezer-scanner
 chmod 700 intezer-scanner
@@ -167,6 +194,5 @@ else
     echo "Error: Neither curl nor wget is installed. Please install either of them." >&2
     exit 1
 fi
-
-./intezer-scanner -k "$INTEZER_API_KEY"
+run_scanner
 rm -f intezer-scanner
