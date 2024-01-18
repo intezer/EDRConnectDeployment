@@ -112,17 +112,19 @@ get_with_curl() {
     fi
 }
 
-
 run_scanner() {
     local scanner_cmd="./intezer-scanner -k \"$INTEZER_API_KEY\""
     local proxy_args=""
+    
     local proxy_url_without_protocol="${PROXY_URL#*://}"
-    local proxy_protocol="${PROXY_URL%://*}://"
-
+    local proxy_protocol=""
+    if [ "$proxy_url_without_protocol" != "$PROXY_URL" ]; then
+            local proxy_protocol="${PROXY_URL%%://*}://"
+    fi
     # scanner gets proxy as https://user:pass@url:port
     if should_use_proxy; then
         if should_use_proxy_credentials; then
-            proxy_args="-p ${proxy_protocol}${PROXY_USER}:$PROXY_PASSWORD@$proxy_url_without_protocol"
+            proxy_args="-p ${proxy_protocol}${PROXY_USER}:${PROXY_PASSWORD}@${proxy_url_without_protocol}"
         else
             proxy_args="-p ${proxy_protocol}${proxy_url_without_protocol}"
         fi
