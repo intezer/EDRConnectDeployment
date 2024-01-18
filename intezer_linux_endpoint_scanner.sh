@@ -4,7 +4,8 @@
 # It requires an Intezer API key as an argument.
 # The script will download the scanner to the current directory and execute it, then delete the scanner.
 
-set -eou pipefail
+set -e
+
 
 
 INTEZER_API_KEY=""
@@ -57,16 +58,19 @@ fi
 get_access_token() {
     get_token_url="https://analyze.intezer.com/api/v2-0/get-access-token"
     get_access_token_response=""
-    proxy_args=""
 
 
     if command -v curl >/dev/null 2>&1; then
         if should_use_proxy; then
-        proxy_args="-x $PROXY_URL"
-        if should_use_proxy_credentials; then
-            proxy_args="$proxy_args -U $PROXY_USER:$PROXY_PASSWORD"
-        fi
-        get_access_token_response=$(curl $proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+            if should_use_proxy_credentials; then
+                proxy_args="--proxy-user $PROXY_USER:$PROXY_PASSWORD"
+                get_access_token_response=$(curl $proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+            else 
+                proxy_args="--proxy $PROXY_URL"
+                get_access_token_response=$(curl $proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+            fi
+        else
+            get_access_token_response=$(curl -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
     fi
     elif command -v wget >/dev/null 2>&1; then
         if should_use_proxy; then
