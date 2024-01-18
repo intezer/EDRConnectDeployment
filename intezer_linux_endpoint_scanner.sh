@@ -6,55 +6,6 @@
 
 set -e
 
-
-
-INTEZER_API_KEY=""
-PROXY_URL=""
-PROXY_USER=""
-PROXY_PASSWORD=""
-JWT_TOKEN=""
-
-while [[ $# -gt 0 ]]; do
-    key="$1"
-
-    case $key in
-        -k|--api-key)
-        INTEZER_API_KEY="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        -p|--proxy-url)
-        PROXY_URL="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        -u|--proxy-user)
-        PROXY_USER="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        -s|--proxy-password)
-        PROXY_PASSWORD="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        *)    # unknown option
-        echo "Error: Unknown option: $1" >&2
-        exit 1
-        ;;
-    esac
-done
-
-if [ -z "$INTEZER_API_KEY" ]; then
-    echo "Error: Please provide an Intezer API key." >&2
-    exit 1
-fi
-
-if [ "$(id -u)" != "0" ]; then
-    echo "Error: This script must be run as root." >&2
-    exit 1
-fi
-
 get_access_token() {
     get_token_url="https://analyze.intezer.com/api/v2-0/get-access-token"
     get_access_token_response=""
@@ -185,6 +136,54 @@ run_scanner() {
     fi
 }
 
+
+
+INTEZER_API_KEY=""
+PROXY_URL=""
+PROXY_USER=""
+PROXY_PASSWORD=""
+JWT_TOKEN=""
+
+while [[ $# -gt 0 ]]; do
+    key="$1"
+
+    case $key in
+        -k|--api-key)
+        INTEZER_API_KEY="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        -p|--proxy-url)
+        PROXY_URL="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        -u|--proxy-user)
+        PROXY_USER="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        -s|--proxy-password)
+        PROXY_PASSWORD="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        *)    # unknown option
+        echo "Error: Unknown option: $1" >&2
+        exit 1
+        ;;
+    esac
+done
+
+if [ -z "$INTEZER_API_KEY" ]; then
+    echo "Error: Please provide an Intezer API key." >&2
+    exit 1
+fi
+
+if [ "$(id -u)" != "0" ]; then
+    echo "Error: This script must be run as root." >&2
+    exit 1
+fi
 
 rm -f intezer-scanner
 touch intezer-scanner
