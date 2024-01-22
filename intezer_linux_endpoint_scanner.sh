@@ -1,10 +1,19 @@
 #!/bin/bash
-
+# Intezer Linux Endpoint Scanner Script 
+# Version 1.0.0
+#
 # This script downloads the Intezer Linux Endpoint Scanner and runs it.
 # It requires an Intezer API key as an argument.
 # The script will download the scanner to the current directory and execute it, then delete the scanner.
 
 set -e
+
+INTEZER_API_KEY=""
+PROXY_URL=""
+PROXY_USER=""
+PROXY_PASSWORD=""
+JWT_TOKEN=""
+SCANNER_DOWNLOAD_PATH="./intezer-scanner"
 
 get_access_token() {
     get_token_url="https://analyze.intezer.com/api/v2-0/get-access-token"
@@ -15,14 +24,11 @@ get_access_token() {
         if should_use_proxy; then
             if should_use_proxy_credentials; then
                 proxy_args="--proxy-user $PROXY_USER:$PROXY_PASSWORD"
-                get_access_token_response=$(curl $proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
             else 
                 proxy_args="--proxy $PROXY_URL"
-                get_access_token_response=$(curl $proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
             fi
-        else
-            get_access_token_response=$(curl -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
-    fi
+        fi
+        get_access_token_response=$(curl ${proxy_args} -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
     elif command -v wget >/dev/null 2>&1; then
         if should_use_proxy; then
             if should_use_proxy_credentials; then
@@ -44,7 +50,7 @@ get_access_token() {
         exit 1
     fi
 
-    export JWT_TOKEN="$access_token"
+    echo "$access_token"
 }
 
 should_use_proxy() {
@@ -57,7 +63,6 @@ should_use_proxy_credentials() {
 
 get_with_wget() {
     scanner_download_url="https://analyze.intezer.com/api/v2-0/endpoint-scanner/download/linux"
-    get_access_token
     # First wget command to get the redirected URL (without following it)
     redirect_url=$(wget --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i Location | sed -e 's/Location: //')
 
@@ -73,12 +78,12 @@ get_with_wget() {
     # Second wget command to download the file from the redirected URL
     if should_use_proxy; then
         if should_use_proxy_credentials; then
-            https_proxy=$PROXY_URL wget --proxy-user="$PROXY_USER" --proxy-password="$PROXY_PASSWORD" "$redirect_url" -O intezer-scanner
+            https_proxy=$PROXY_URL wget --proxy-user="$PROXY_USER" --proxy-password="$PROXY_PASSWORD" "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
         else
-            https_proxy=$PROXY_URL wget "$redirect_url" -O intezer-scanner
+            https_proxy=$PROXY_URL wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
         fi
     else
-        wget "$redirect_url" -O intezer-scanner
+        wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
     fi
 
     # Check if the download was successful
@@ -86,22 +91,22 @@ get_with_wget() {
         echo "Download completed successfully."
     else
         echo "Download failed."
+        exit 1
     fi
 }
 
 get_with_curl() {
     scanner_download_url="https://analyze.intezer.com/api/v2-0/endpoint-scanner/download/linux"
-    get_access_token
 
     # Check if the download was successful
     if should_use_proxy; then
         if should_use_proxy_credentials; then
-            curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --proxy "$PROXY_URL" --proxy-user "$PROXY_USER:$PROXY_PASSWORD" --output intezer-scanner
+            curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --proxy "$PROXY_URL" --proxy-user "$PROXY_USER:$PROXY_PASSWORD" --output "$SCANNER_DOWNLOAD_PATH"
         else
-            curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --proxy "$PROXY_URL" --output intezer-scanner
+            curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --proxy "$PROXY_URL" --output "$SCANNER_DOWNLOAD_PATH"
         fi
     else
-        curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --output intezer-scanner
+        curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --output "$SCANNER_DOWNLOAD_PATH"
     fi
 
     # Check if the download was successful
@@ -113,7 +118,7 @@ get_with_curl() {
 }
 
 run_scanner() {
-    local scanner_cmd="./intezer-scanner -k \"$INTEZER_API_KEY\""
+    local scanner_cmd="$SCANNER_DOWNLOAD_PATH -k \"$INTEZER_API_KEY\""
     local proxy_args=""
     
     local proxy_url_without_protocol="${PROXY_URL#*://}"
@@ -131,73 +136,78 @@ run_scanner() {
     fi
 
     eval "$scanner_cmd $proxy_args"
-
     if [ $? -ne 0 ]; then
         echo "Error: Intezer scanner execution failed." >&2
         exit 1
     fi
 }
 
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        key="$1"
 
+        case $key in
+            -k|--api-key)
+            INTEZER_API_KEY="$2"
+            shift # past argument
+            shift # past value
+            ;;
+            -p|--proxy-url)
+            PROXY_URL="$2"
+            shift # past argument
+            shift # past value
+            ;;
+            -u|--proxy-user)
+            PROXY_USER="$2"
+            shift # past argument
+            shift # past value
+            ;;
+            -s|--proxy-password)
+            PROXY_PASSWORD="$2"
+            shift # past argument
+            shift # past value
+            ;;
+            *)    # unknown option
+            echo "Error: Unknown option: $1" >&2
+            exit 1
+            ;;
+        esac
+    done
+}
 
-INTEZER_API_KEY=""
-PROXY_URL=""
-PROXY_USER=""
-PROXY_PASSWORD=""
-JWT_TOKEN=""
-
-while [[ $# -gt 0 ]]; do
-    key="$1"
-
-    case $key in
-        -k|--api-key)
-        INTEZER_API_KEY="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        -p|--proxy-url)
-        PROXY_URL="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        -u|--proxy-user)
-        PROXY_USER="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        -s|--proxy-password)
-        PROXY_PASSWORD="$2"
-        shift # past argument
-        shift # past value
-        ;;
-        *)    # unknown option
-        echo "Error: Unknown option: $1" >&2
+ensure_key() {
+    if [ -z "$INTEZER_API_KEY" ]; then
+        echo "Error: Please provide an Intezer API key." >&2
         exit 1
-        ;;
-    esac
-done
+    fi
+}
 
-if [ -z "$INTEZER_API_KEY" ]; then
-    echo "Error: Please provide an Intezer API key." >&2
-    exit 1
-fi
+ensure_root() {
+    if [ "$(id -u)" != "0" ]; then
+        echo "Error: This script must be run as root." >&2
+        exit 1
+    fi
+}
 
-if [ "$(id -u)" != "0" ]; then
-    echo "Error: This script must be run as root." >&2
-    exit 1
-fi
+main() {
+    ensure_root
+    parse_args "$@"
+    ensure_key
+    rm -f "$SCANNER_DOWNLOAD_PATH"
+    touch "$SCANNER_DOWNLOAD_PATH"
+    chmod 700 "$SCANNER_DOWNLOAD_PATH"
 
-rm -f intezer-scanner
-touch intezer-scanner
-chmod 700 intezer-scanner
+    JWT_TOKEN=$(get_access_token)
+    if command -v curl >/dev/null 2>&1; then
+        get_with_curl
+    elif command -v wget >/dev/null 2>&1; then
+        get_with_wget
+    else
+        echo "Error: Neither curl nor wget is installed. Please install either of them." >&2
+        exit 1
+    fi
+    run_scanner
+    rm -f "$SCANNER_DOWNLOAD_PATH"
+}
 
-if command -v curl >/dev/null 2>&1; then
-    get_with_curl
-elif command -v wget >/dev/null 2>&1; then
-    get_with_wget
-else
-    echo "Error: Neither curl nor wget is installed. Please install either of them." >&2
-    exit 1
-fi
-run_scanner
-rm -f intezer-scanner
+main "$@"
