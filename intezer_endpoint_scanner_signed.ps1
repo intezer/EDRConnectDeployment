@@ -1,6 +1,7 @@
 param(
     [string]$ApiKey,
     [string]$EndpointAnalysisId,
+    [string]$LogFolder,
     [switch]$Help
 )
 
@@ -10,8 +11,9 @@ function Show-Help {
     "       .\YourScriptName.ps1 <api_key> [<endpoint_analysis_id>]"
     "  -ApiKey              Specifies the API key for authentication."
     "  -EndpointAnalysisId  Optional. Specifies the Endpoint Analysis ID."
+    "  -LogFolder            Optional. Specifies the log file's folder."
     "  -Help                Displays this help message."
-    "  <json_object>        Specifies a JSON object with 'api_key' and optionally 'endpoint_analysis_id'."
+    "  <json_object>        Specifies a JSON object with 'api_key' and optionally 'endpoint_analysis_id' and 'log_folder'."
     "  <api_key>            Specifies the API key as a positional argument."
     "  <endpoint_analysis_id> Optional. Specifies the Endpoint Analysis ID as a second positional argument."
     exit
@@ -34,6 +36,7 @@ if (-not $PSBoundParameters.ContainsKey('ApiKey')) {
         if ($IsValidJson) {
             $ApiKey = $JsonObject.api_key
             $EndpointAnalysisId = $JsonObject.endpoint_analysis_id
+            $LogFolder = $JsonObject.log_folder
         }
         else {
             $ApiKey = $args[0]
@@ -65,7 +68,7 @@ catch {
 $Headers.Add("Authorization", "Bearer $($Response.result)")
 
 $TempFolder = ([io.path]::GetTempPath())
-$ScannerFilePath = Join-Path $TempFolder "Scanner.exe"
+$ScannerFilePath = Join-Path $TempFolder "IntezerScanner.exe"
 
 try {
     Invoke-RestMethod -Uri "https://analyze.intezer.com/api/v2-0/endpoint-scanner/download" -Headers $Headers -OutFile $ScannerFilePath
@@ -74,8 +77,11 @@ catch {
     Write-Error "Error downloading the scanner. Error $PSItem"
     exit 1
 }
+if ([string]::IsNullOrEmpty($LogFolder)){
+    $LogFolder = Join-Path $TempFolder "IntezerLogs"
+}
 
-$ArgumentList = @("-k", $ApiKey, "-n")
+$ArgumentList = @("-k", $ApiKey, "-l", $LogFolder, "-n")
 
 if (![string]::IsNullOrEmpty($EndpointAnalysisId)) {
     $ArgumentList += @("-i", $EndpointAnalysisId)
@@ -88,8 +94,8 @@ Remove-Item -Path $ScannerFilePath -Force
 # SIG # Begin signature block
 # MIImHgYJKoZIhvcNAQcCoIImDzCCJgsCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCLSLV/K05Whkh9
-# DHkc6T6d0E5KoXM0WQAjdgThaMT6sKCCDKcwggXvMIID16ADAgECAhAN4sHCPFEx
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCUh4CPfRI82xL0
+# 1V/1HLbtSXbDK5i8NXGUpQnpyUxVnaCCDKcwggXvMIID16ADAgECAhAN4sHCPFEx
 # zFa7sCkPrjTlMA0GCSqGSIb3DQEBCwUAMGkxCzAJBgNVBAYTAlVTMRcwFQYDVQQK
 # Ew5EaWdpQ2VydCwgSW5jLjFBMD8GA1UEAxM4RGlnaUNlcnQgVHJ1c3RlZCBHNCBD
 # b2RlIFNpZ25pbmcgUlNBNDA5NiBTSEEzODQgMjAyMSBDQTEwHhcNMjMwNjI5MDAw
@@ -162,14 +168,14 @@ Remove-Item -Path $ScannerFilePath -Force
 # ZyBSU0E0MDk2IFNIQTM4NCAyMDIxIENBMQIQDeLBwjxRMcxWu7ApD6405TANBglg
 # hkgBZQMEAgEFAKB8MBAGCisGAQQBgjcCAQwxAjAAMBkGCSqGSIb3DQEJAzEMBgor
 # BgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3
-# DQEJBDEiBCBwxTL6uX+fTLtu2bw/2A1IycnTuOqhAUAua+DKFe1HWjALBgcqhkjO
-# PQIBBQAEZzBlAjEA46B5Gzw5+hoVrs58pL39Fho7Q+DB9kf+8zsIxlDyXM/nMuXj
-# sSrvxH/qKc0OLeKpAjAsYmBM5HdpnB5OWeopkAk9qDf+e1ULgDnYooorqlfhWlHR
-# JaTDIbYbT0eThbrSLe2hghdAMIIXPAYKKwYBBAGCNwMDATGCFywwghcoBgkqhkiG
+# DQEJBDEiBCCTOg0rjJmSHEXqpWrYeCE4NlRfA8wOxLJ6DJniFuRAvDALBgcqhkjO
+# PQIBBQAEZzBlAjEA3ziWj4JFnkE/h6u6wIvRlDwaDarioQ8mVUV2f+iDw3gkSppy
+# TJSkM+EvlCyhBfPtAjAVVF4CbK7lVC1KGhVfd2XxkBLCXJ7Uw0YNKdb6fB7VoIft
+# sSSrXwuo+fECaKjGapehghdAMIIXPAYKKwYBBAGCNwMDATGCFywwghcoBgkqhkiG
 # 9w0BBwKgghcZMIIXFQIBAzEPMA0GCWCGSAFlAwQCAQUAMHgGCyqGSIb3DQEJEAEE
-# oGkEZzBlAgEBBglghkgBhv1sBwEwMTANBglghkgBZQMEAgEFAAQgl3GDCHVTloLT
-# aA7gZ0JUK1atsk8vA9bjTibtsIBMkIkCEQC+alLHQ/ulSqTIKTVVh5cQGA8yMDI0
-# MDQwODA5NTIyN1qgghMJMIIGwjCCBKqgAwIBAgIQBUSv85SdCDmmv9s/X+VhFjAN
+# oGkEZzBlAgEBBglghkgBhv1sBwEwMTANBglghkgBZQMEAgEFAAQgxLJQxanqotcJ
+# 1BoeX4CXQ9dsmIhRUvNh590G8v+SwTgCEQD4XRVVQHSCSaOXYNF4ZcLnGA8yMDI0
+# MDQxODEzNTEwMFqgghMJMIIGwjCCBKqgAwIBAgIQBUSv85SdCDmmv9s/X+VhFjAN
 # BgkqhkiG9w0BAQsFADBjMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQs
 # IEluYy4xOzA5BgNVBAMTMkRpZ2lDZXJ0IFRydXN0ZWQgRzQgUlNBNDA5NiBTSEEy
 # NTYgVGltZVN0YW1waW5nIENBMB4XDTIzMDcxNDAwMDAwMFoXDTM0MTAxMzIzNTk1
@@ -274,20 +280,20 @@ Remove-Item -Path $ScannerFilePath -Force
 # AgEBMHcwYzELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJbmMuMTsw
 # OQYDVQQDEzJEaWdpQ2VydCBUcnVzdGVkIEc0IFJTQTQwOTYgU0hBMjU2IFRpbWVT
 # dGFtcGluZyBDQQIQBUSv85SdCDmmv9s/X+VhFjANBglghkgBZQMEAgEFAKCB0TAa
-# BgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJKoZIhvcNAQkFMQ8XDTI0MDQw
-# ODA5NTIyN1owKwYLKoZIhvcNAQkQAgwxHDAaMBgwFgQUZvArMsLCyQ+CXc6qisnG
-# Txmcz0AwLwYJKoZIhvcNAQkEMSIEIOqYCEL5AMuy9q7UvYk2VVUo31wdnn0a17Ch
-# o2h60gmWMDcGCyqGSIb3DQEJEAIvMSgwJjAkMCIEINL25G3tdCLM0dRAV2hBNm+C
-# itpVmq4zFq9NGprUDHgoMA0GCSqGSIb3DQEBAQUABIICACw85TgI0Mwgnb67MO9Y
-# Ifrvgp9f9qrl13goRuL5IobSB+lc4KktJni8DVjlFZxfiCHtBhXAYDEBe6GyQrJo
-# RpVXaPGd0d3yJS73AEZG2NsUk6dQ9SeRougphg0VpxSnlYV8xJBmHfCraGzcFsGE
-# gKcsnvb6Ud0oSI4bBczlrI4H7bqlIKLzJhyWM8H5/vl+e7ZP9nvs1kYdV61oWkBu
-# a1V5hp6SyybR+ku6WkJTaX39fnGHHswlm7o9VEhfVrL1tAGTtfS1lmvU2vvhxVg9
-# RJV+AkoVdoxzssvyVmi7I0ut3AvXUhs5IWu2ZFpXO/p8gYtIGoZDjKd58fTusFxt
-# 7V0jKuTMEMGYWUAa+6ZaI3liEQdLqmbKdA1KxzXTJ/RtuXPAntjaqsggBrpgF1sU
-# HZXEqBBRSABImUIemCQIH3MuAO/qKrGvvBR/J0mcmyysaTjXSB7ZMSNpNo0sSOcw
-# /qlOR7xupG4VzgBrj7PGKMbm1cJlBL4U+1yTzPxgJuSN1/dDUsaCc4E7JB9sia6Z
-# i3l08KuPlaQlBAshcZ+czxNK0Af78JZIoFdyQEyaUkcCsJ7XAHMD5Mb7s0+R32Jl
-# gEVCaWycWUJuW3ZYSgiarQjECgo/Zx7VzMNExZ5bGopBIWhnXu5giwhYoWjUJEbZ
-# gxIqYqOmFDYhqypBq2TNZN+F
+# BgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJKoZIhvcNAQkFMQ8XDTI0MDQx
+# ODEzNTEwMFowKwYLKoZIhvcNAQkQAgwxHDAaMBgwFgQUZvArMsLCyQ+CXc6qisnG
+# Txmcz0AwLwYJKoZIhvcNAQkEMSIEIBOsTcJJtrC+PftDoc0xa10QRISIEs1YdYSC
+# H6xXk8MrMDcGCyqGSIb3DQEJEAIvMSgwJjAkMCIEINL25G3tdCLM0dRAV2hBNm+C
+# itpVmq4zFq9NGprUDHgoMA0GCSqGSIb3DQEBAQUABIICAICQ9Bg7imvsjow4Yj0h
+# CM6eJJOZLsZpsUKFzr2PznOfDoi1nPeF4SLwa1vpEq/jUVpc9KmYqa7i3tO26dCT
+# uU5zpNbYcrTagx+liQysBdnIXRMf8tT4Ps4r+wa7Jc6ub7tYEAcX3hYlku1OTSSw
+# VL5hhPk2ujFvmzf71KBfNjDuhjiszTzSRgqXhEDc7MDraYAeEL0DtgTwwAZoXAby
+# z1MgHGcEFUFXbHcIJBVS2nm+dnaBmlzgco4rqE9fHjPweM7zAn1KnWktgzWKpxn7
+# ewr9/aZr2os18IKtCJi+iqpX5xTEnBUlMWKPckGj8DlWJocOsD2ENwqqsoEy8QYj
+# LIF29ocSnttwGEe8fAIeLldUai3yqlJYCl8tvZenO9Y4X74SzYrYritr2weZOlwf
+# 3UUxux0P1Q4qhV9FIgKIlv579UA82mGArwuxYq9PfXO4MpNrJRZpD2i/lqVtZsKu
+# YODW9iAY6Y4NP+aJV2BpqsJSWwrJqdMCmpk55fB9vzuhCxYDkm8r82JTFWX+CU93
+# 15kWosHkgW0a6+7+X4jLvid7AlbaHNIP6xupV3PEU7hCHKiaDN31+VRMPiaVRuy9
+# 455TET/navfphPUqRbw9CR3w+92f/x+U/s8K8zPrtDpsQgrQT+lIkT0jN1NslPx0
+# kELCkDMyWkERcPgZhcvYqd+3
 # SIG # End signature block
