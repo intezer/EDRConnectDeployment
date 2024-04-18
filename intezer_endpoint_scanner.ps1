@@ -1,6 +1,7 @@
 param(
     [string]$ApiKey,
     [string]$EndpointAnalysisId,
+    [string]$LogFolder,
     [switch]$Help
 )
 
@@ -10,8 +11,9 @@ function Show-Help {
     "       .\YourScriptName.ps1 <api_key> [<endpoint_analysis_id>]"
     "  -ApiKey              Specifies the API key for authentication."
     "  -EndpointAnalysisId  Optional. Specifies the Endpoint Analysis ID."
+    "  -LogFolder            Optional. Specifies the log file's folder."
     "  -Help                Displays this help message."
-    "  <json_object>        Specifies a JSON object with 'api_key' and optionally 'endpoint_analysis_id'."
+    "  <json_object>        Specifies a JSON object with 'api_key' and optionally 'endpoint_analysis_id' and 'log_folder'."
     "  <api_key>            Specifies the API key as a positional argument."
     "  <endpoint_analysis_id> Optional. Specifies the Endpoint Analysis ID as a second positional argument."
     exit
@@ -34,6 +36,7 @@ if (-not $PSBoundParameters.ContainsKey('ApiKey')) {
         if ($IsValidJson) {
             $ApiKey = $JsonObject.api_key
             $EndpointAnalysisId = $JsonObject.endpoint_analysis_id
+            $LogFolder = $JsonObject.log_folder
         }
         else {
             $ApiKey = $args[0]
@@ -65,7 +68,7 @@ catch {
 $Headers.Add("Authorization", "Bearer $($Response.result)")
 
 $TempFolder = ([io.path]::GetTempPath())
-$ScannerFilePath = Join-Path $TempFolder "Scanner.exe"
+$ScannerFilePath = Join-Path $TempFolder "IntezerScanner.exe"
 
 try {
     Invoke-RestMethod -Uri "https://analyze.intezer.com/api/v2-0/endpoint-scanner/download" -Headers $Headers -OutFile $ScannerFilePath
@@ -74,8 +77,11 @@ catch {
     Write-Error "Error downloading the scanner. Error $PSItem"
     exit 1
 }
+if ([string]::IsNullOrEmpty($LogFolder)){
+    $LogFolder = Join-Path $TempFolder "IntezerLogs"
+}
 
-$ArgumentList = @("-k", $ApiKey, "-n")
+$ArgumentList = @("-k", $ApiKey, "-l", $LogFolder, "-n")
 
 if (![string]::IsNullOrEmpty($EndpointAnalysisId)) {
     $ArgumentList += @("-i", $EndpointAnalysisId)
