@@ -1,6 +1,6 @@
 #!/bin/bash
 # Intezer Linux Endpoint Scanner Script 
-# Version 1.0.0
+# Version 1.0.1
 #
 # This script downloads the Intezer Linux Endpoint Scanner and runs it.
 # It requires an Intezer API key as an argument.
