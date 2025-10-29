@@ -14,9 +14,14 @@ PROXY_USER=""
 PROXY_PASSWORD=""
 JWT_TOKEN=""
 SCANNER_DOWNLOAD_PATH="./intezer-scanner"
+LOGS_DIR=""
+SOURCE=""
+ENDPOINT_ANALYSIS_ID=""
+ANALYZE_URL="https://analyze.intezer.com"
+URL_PROVIDED="0"
 
 get_access_token() {
-    get_token_url="https://analyze.intezer.com/api/v2-0/get-access-token"
+    get_token_url="$ANALYZE_URL/api/v2-0/get-access-token"
     get_access_token_response=""
 
 
@@ -62,7 +67,7 @@ should_use_proxy_credentials() {
 }
 
 get_with_wget() {
-    scanner_download_url="https://analyze.intezer.com/api/v2-0/endpoint-scanner/download/linux"
+    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/linux"
     # First wget command to get the redirected URL (without following it)
     redirect_url=$(wget --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i Location | sed -e 's/Location: //')
 
@@ -96,7 +101,7 @@ get_with_wget() {
 }
 
 get_with_curl() {
-    scanner_download_url="https://analyze.intezer.com/api/v2-0/endpoint-scanner/download/linux"
+    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/linux"
 
     # Check if the download was successful
     if should_use_proxy; then
@@ -120,6 +125,7 @@ get_with_curl() {
 run_scanner() {
     local scanner_cmd="$SCANNER_DOWNLOAD_PATH -k \"$INTEZER_API_KEY\""
     local proxy_args=""
+    local extra_args=""
     
     local proxy_url_without_protocol="${PROXY_URL#*://}"
     local proxy_protocol=""
@@ -135,7 +141,20 @@ run_scanner() {
         fi
     fi
 
-    eval "$scanner_cmd $proxy_args"
+    if [ -n "$LOGS_DIR" ]; then
+        extra_args="$extra_args -l \"$LOGS_DIR\""
+    fi
+    if [ -n "$SOURCE" ]; then
+        extra_args="$extra_args -s \"$SOURCE\""
+    fi
+    if [ -n "$ENDPOINT_ANALYSIS_ID" ]; then
+        extra_args="$extra_args -i \"$ENDPOINT_ANALYSIS_ID\""
+    fi
+    if [ "$URL_PROVIDED" = "1" ]; then
+        extra_args="$extra_args -u \"$ANALYZE_URL\""
+    fi
+
+    eval "$scanner_cmd $proxy_args $extra_args"
     if [ $? -ne 0 ]; then
         echo "Error: Intezer scanner execution failed." >&2
         exit 1
@@ -149,23 +168,44 @@ parse_args() {
         case $key in
             -k|--api-key)
             INTEZER_API_KEY="$2"
-            shift # past argument
-            shift # past value
+            shift
+            shift
             ;;
             -p|--proxy-url)
             PROXY_URL="$2"
-            shift # past argument
-            shift # past value
+            shift
+            shift
             ;;
-            -u|--proxy-user)
+            --proxy-user)
             PROXY_USER="$2"
-            shift # past argument
-            shift # past value
+            shift
+            shift
             ;;
-            -s|--proxy-password)
+            --proxy-password)
             PROXY_PASSWORD="$2"
-            shift # past argument
-            shift # past value
+            shift
+            shift
+            ;;
+            -l|--logs-dir)
+            LOGS_DIR="$2"
+            shift
+            shift
+            ;;
+            -s|--source)
+            SOURCE="$2"
+            shift
+            shift
+            ;;
+            -i|--endpoint-analysis-id)
+            ENDPOINT_ANALYSIS_ID="$2"
+            shift
+            shift
+            ;;
+            -u|--url)
+            ANALYZE_URL="$2"
+            URL_PROVIDED="1"
+            shift
+            shift
             ;;
             *)    # unknown option
             echo "Error: Unknown option: $1" >&2
