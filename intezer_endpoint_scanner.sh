@@ -7,7 +7,7 @@
 # The script will download the scanner to the current directory and execute it, then delete the scanner.
 # Supports Linux and macOS (detected automatically via uname).
 
-set -e
+set -eo pipefail
 
 INTEZER_API_KEY=""
 PROXY_URL=""
@@ -44,20 +44,21 @@ get_access_token() {
     get_access_token_response=""
 
     if command -v curl >/dev/null 2>&1; then
+        local curl_proxy_args=""
         if should_use_proxy; then
+            curl_proxy_args="--proxy $PROXY_URL"
             if should_use_proxy_credentials; then
-                proxy_args="--proxy-user $PROXY_USER:$PROXY_PASSWORD"
-            else
-                proxy_args="--proxy $PROXY_URL"
+                curl_proxy_args="$curl_proxy_args --proxy-user $PROXY_USER:$PROXY_PASSWORD"
             fi
         fi
-        get_access_token_response=$(curl ${proxy_args} -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+        get_access_token_response=$(curl $curl_proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
     elif command -v wget >/dev/null 2>&1; then
         if should_use_proxy; then
+            local wget_proxy_args=""
             if should_use_proxy_credentials; then
-                proxy_args="--proxy-user=$PROXY_USER --proxy-password=$PROXY_PASSWORD"
-                get_access_token_response=$(https_proxy=$PROXY_URL wget $proxy_args -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
+                wget_proxy_args="--proxy-user=$PROXY_USER --proxy-password=$PROXY_PASSWORD"
             fi
+            get_access_token_response=$(https_proxy=$PROXY_URL wget $wget_proxy_args -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
         else
             get_access_token_response=$(wget -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
         fi
@@ -66,7 +67,7 @@ get_access_token() {
         exit 1
     fi
 
-    access_token=$(echo "$get_access_token_response" | grep -o '"result":"[^"]*' | sed 's/"result":"//')
+    access_token=$(echo "$get_access_token_response" | grep -o '"result":"[^"]*' | sed 's/"result":"//' || true)
 
     if [ -z "$access_token" ]; then
         echo "Error: Failed to get access token." >&2
@@ -87,7 +88,7 @@ should_use_proxy_credentials() {
 get_with_wget() {
     scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
     # First wget command to get the redirected URL (without following it)
-    redirect_url=$(wget --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i Location | sed -e 's/Location: //')
+    redirect_url=$(wget --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i Location | sed -e 's/Location: //' || true)
 
     # Remove whitespace from redirect_url
     redirect_url=$(echo "$redirect_url" | cut -d ' ' -f 1)
@@ -109,13 +110,8 @@ get_with_wget() {
         wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
     fi
 
-    if [ $? -eq 0 ]; then
-        chmod +x "$SCANNER_DOWNLOAD_PATH"
-        echo "Download completed successfully."
-    else
-        echo "Download failed."
-        exit 1
-    fi
+    chmod +x "$SCANNER_DOWNLOAD_PATH"
+    echo "Download completed successfully."
 }
 
 get_with_curl() {
@@ -143,46 +139,40 @@ get_with_curl() {
 }
 
 run_scanner() {
-    local scanner_cmd="$SCANNER_DOWNLOAD_PATH -k \"$INTEZER_API_KEY\""
-    local proxy_args=""
-    local extra_args=""
+    local cmd=("$SCANNER_DOWNLOAD_PATH" -k "$INTEZER_API_KEY")
 
     local proxy_url_without_protocol="${PROXY_URL#*://}"
     local proxy_protocol=""
     if [ "$proxy_url_without_protocol" != "$PROXY_URL" ]; then
-            local proxy_protocol="${PROXY_URL%%://*}://"
+        proxy_protocol="${PROXY_URL%%://*}://"
     fi
     # scanner gets proxy as https://user:pass@url:port
     if should_use_proxy; then
         if should_use_proxy_credentials; then
-            proxy_args="-p ${proxy_protocol}${PROXY_USER}:${PROXY_PASSWORD}@${proxy_url_without_protocol}"
+            cmd+=(-p "${proxy_protocol}${PROXY_USER}:${PROXY_PASSWORD}@${proxy_url_without_protocol}")
         else
-            proxy_args="-p ${proxy_protocol}${proxy_url_without_protocol}"
+            cmd+=(-p "${proxy_protocol}${proxy_url_without_protocol}")
         fi
     fi
 
     if [ -n "$LOGS_DIR" ]; then
-        extra_args="$extra_args -l \"$LOGS_DIR\""
+        cmd+=(-l "$LOGS_DIR")
     fi
     if [ -n "$SOURCE" ]; then
-        extra_args="$extra_args -s \"$SOURCE\""
+        cmd+=(-s "$SOURCE")
     fi
     if [ -n "$ENDPOINT_ANALYSIS_ID" ]; then
-        extra_args="$extra_args -i \"$ENDPOINT_ANALYSIS_ID\""
+        cmd+=(-i "$ENDPOINT_ANALYSIS_ID")
     fi
     if [ "$URL_PROVIDED" = "1" ]; then
-        extra_args="$extra_args -u \"$ANALYZE_URL\""
+        cmd+=(-u "$ANALYZE_URL")
     fi
 
-    eval "$scanner_cmd $proxy_args $extra_args"
-    if [ $? -ne 0 ]; then
-        echo "Error: Intezer scanner execution failed." >&2
-        exit 1
-    fi
+    "${cmd[@]}"
 }
 
 parse_args() {
-    while [[ $# -gt 0 ]]; do
+    while [ $# -gt 0 ]; do
         key="$1"
 
         case $key in
