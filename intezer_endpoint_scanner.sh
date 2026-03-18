@@ -40,8 +40,8 @@ detect_platform() {
 }
 
 get_access_token() {
-    get_token_url="$ANALYZE_URL/api/v2-0/get-access-token"
-    get_access_token_response=""
+    local get_token_url="$ANALYZE_URL/api/v2-0/get-access-token"
+    local get_access_token_response=""
 
     if command -v curl >/dev/null 2>&1; then
         local curl_proxy_args=()
@@ -67,6 +67,7 @@ get_access_token() {
         exit 1
     fi
 
+    local access_token
     access_token=$(echo "$get_access_token_response" | grep -o '"result":"[^"]*' | sed 's/"result":"//' || true)
 
     if [ -z "$access_token" ]; then
@@ -86,36 +87,37 @@ should_use_proxy_credentials() {
 }
 
 get_with_wget() {
-    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
-    # First wget command to get the redirected URL (without following it)
-    redirect_url=$(wget --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i Location | sed -e 's/Location: //' || true)
+    local scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
+    local wget_proxy_env=""
+    local wget_proxy_args=()
+    if should_use_proxy; then
+        wget_proxy_env="$PROXY_URL"
+        if should_use_proxy_credentials; then
+            wget_proxy_args+=("--proxy-user=$PROXY_USER" "--proxy-password=$PROXY_PASSWORD")
+        fi
+    fi
 
-    # Remove whitespace from redirect_url
+    # First wget command to get the redirected URL (without following it)
+    local redirect_url
+    redirect_url=$(https_proxy=$wget_proxy_env wget "${wget_proxy_args[@]}" --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i '[Ll]ocation' | sed -e 's/[Ll]ocation: //' | tr -d '\r' || true)
+
+    # Remove trailing whitespace
     redirect_url=$(echo "$redirect_url" | cut -d ' ' -f 1)
 
-    # Check if the redirect URL is empty
     if [ -z "$redirect_url" ]; then
-        echo "No redirect URL found."
+        echo "Error: No redirect URL found." >&2
         exit 1
     fi
 
     # Second wget command to download the file from the redirected URL
-    if should_use_proxy; then
-        if should_use_proxy_credentials; then
-            https_proxy=$PROXY_URL wget --proxy-user="$PROXY_USER" --proxy-password="$PROXY_PASSWORD" "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
-        else
-            https_proxy=$PROXY_URL wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
-        fi
-    else
-        wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
-    fi
+    https_proxy=$wget_proxy_env wget "${wget_proxy_args[@]}" "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
 
     chmod +x "$SCANNER_DOWNLOAD_PATH"
     echo "Download completed successfully."
 }
 
 get_with_curl() {
-    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
+    local scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
     local http_code
 
     if should_use_proxy; then
@@ -173,51 +175,49 @@ run_scanner() {
 
 parse_args() {
     while [ $# -gt 0 ]; do
-        key="$1"
-
-        case $key in
+        case "$1" in
             -k|--api-key)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             INTEZER_API_KEY="$2"
-            shift
-            shift
+            shift 2
             ;;
             -p|--proxy-url)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             PROXY_URL="$2"
-            shift
-            shift
+            shift 2
             ;;
             --proxy-user)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             PROXY_USER="$2"
-            shift
-            shift
+            shift 2
             ;;
             --proxy-password)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             PROXY_PASSWORD="$2"
-            shift
-            shift
+            shift 2
             ;;
             -l|--logs-dir)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             LOGS_DIR="$2"
-            shift
-            shift
+            shift 2
             ;;
             -s|--source)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             SOURCE="$2"
-            shift
-            shift
+            shift 2
             ;;
             -i|--endpoint-analysis-id)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             ENDPOINT_ANALYSIS_ID="$2"
-            shift
-            shift
+            shift 2
             ;;
             -u|--url)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             ANALYZE_URL="$2"
             URL_PROVIDED="1"
-            shift
-            shift
+            shift 2
             ;;
-            *)    # unknown option
+            *)
             echo "Error: Unknown option: $1" >&2
             exit 1
             ;;
@@ -239,6 +239,8 @@ ensure_root() {
     fi
 }
 
+cleanup() { rm -f "$SCANNER_DOWNLOAD_PATH"; }
+
 main() {
     ensure_root
     detect_platform
@@ -247,6 +249,7 @@ main() {
     rm -f "$SCANNER_DOWNLOAD_PATH"
     touch "$SCANNER_DOWNLOAD_PATH"
     chmod 700 "$SCANNER_DOWNLOAD_PATH"
+    trap cleanup EXIT
 
     JWT_TOKEN=$(get_access_token)
     if command -v curl >/dev/null 2>&1; then
@@ -258,7 +261,6 @@ main() {
         exit 1
     fi
     run_scanner
-    rm -f "$SCANNER_DOWNLOAD_PATH"
 }
 
 main "$@"
