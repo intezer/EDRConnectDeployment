@@ -44,21 +44,21 @@ get_access_token() {
     get_access_token_response=""
 
     if command -v curl >/dev/null 2>&1; then
-        local curl_proxy_args=""
+        local curl_proxy_args=()
         if should_use_proxy; then
-            curl_proxy_args="--proxy $PROXY_URL"
+            curl_proxy_args+=(--proxy "$PROXY_URL")
             if should_use_proxy_credentials; then
-                curl_proxy_args="$curl_proxy_args --proxy-user $PROXY_USER:$PROXY_PASSWORD"
+                curl_proxy_args+=(--proxy-user "$PROXY_USER:$PROXY_PASSWORD")
             fi
         fi
-        get_access_token_response=$(curl $curl_proxy_args -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+        get_access_token_response=$(curl "${curl_proxy_args[@]}" -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
     elif command -v wget >/dev/null 2>&1; then
         if should_use_proxy; then
-            local wget_proxy_args=""
+            local wget_proxy_args=()
             if should_use_proxy_credentials; then
-                wget_proxy_args="--proxy-user=$PROXY_USER --proxy-password=$PROXY_PASSWORD"
+                wget_proxy_args+=("--proxy-user=$PROXY_USER" "--proxy-password=$PROXY_PASSWORD")
             fi
-            get_access_token_response=$(https_proxy=$PROXY_URL wget $wget_proxy_args -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
+            get_access_token_response=$(https_proxy=$PROXY_URL wget "${wget_proxy_args[@]}" -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
         else
             get_access_token_response=$(wget -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
         fi
