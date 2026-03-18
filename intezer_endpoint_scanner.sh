@@ -53,15 +53,15 @@ get_access_token() {
         fi
         get_access_token_response=$(curl "${curl_proxy_args[@]}" -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
     elif command -v wget >/dev/null 2>&1; then
+        local wget_proxy_env=""
+        local wget_proxy_args=()
         if should_use_proxy; then
-            local wget_proxy_args=()
+            wget_proxy_env="$PROXY_URL"
             if should_use_proxy_credentials; then
                 wget_proxy_args+=("--proxy-user=$PROXY_USER" "--proxy-password=$PROXY_PASSWORD")
             fi
-            get_access_token_response=$(https_proxy=$PROXY_URL wget "${wget_proxy_args[@]}" -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
-        else
-            get_access_token_response=$(wget -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
         fi
+        get_access_token_response=$(https_proxy=$wget_proxy_env wget "${wget_proxy_args[@]}" -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
     else
         echo "Error: Neither curl nor wget is installed. Please install either of them." >&2
         exit 1
@@ -97,9 +97,9 @@ get_with_wget() {
         fi
     fi
 
-    # First wget command to get the redirected URL (without following it)
+    # Get the redirected URL without following it (|| true: wget exits non-zero on 3xx)
     local redirect_url
-    redirect_url=$(https_proxy=$wget_proxy_env wget "${wget_proxy_args[@]}" --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i '[Ll]ocation' | sed -e 's/[Ll]ocation: //' | tr -d '\r' || true)
+    redirect_url=$(https_proxy=$wget_proxy_env wget "${wget_proxy_args[@]}" --method GET --timeout=30 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i '[Ll]ocation' | sed -e 's/[Ll]ocation: //' | tr -d '\r' || true)
 
     # Remove trailing whitespace
     redirect_url=$(echo "$redirect_url" | cut -d ' ' -f 1)
@@ -130,7 +130,8 @@ get_with_curl() {
         http_code=$(curl --location "$scanner_download_url" --header "Authorization: Bearer $JWT_TOKEN" --output "$SCANNER_DOWNLOAD_PATH" --write-out "%{http_code}" -s)
     fi
 
-    if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+    # --location follows redirects, so 3xx is never seen here
+    if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ]; then
         chmod +x "$SCANNER_DOWNLOAD_PATH"
         echo "Download completed successfully."
     else
