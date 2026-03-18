@@ -1,10 +1,11 @@
 #!/bin/bash
-# Intezer macOS Endpoint Scanner Script
+# Intezer Endpoint Scanner Script
 # Version 1.0.0
 #
-# This script downloads the Intezer macOS Endpoint Scanner and runs it.
+# This script downloads the Intezer Endpoint Scanner and runs it.
 # It requires an Intezer API key as an argument.
 # The script will download the scanner to the current directory and execute it, then delete the scanner.
+# Supports Linux and macOS (detected automatically via uname).
 
 set -e
 
@@ -19,19 +20,51 @@ SOURCE=""
 ENDPOINT_ANALYSIS_ID=""
 ANALYZE_URL="https://analyze.intezer.com"
 URL_PROVIDED="0"
+PLATFORM=""
+
+detect_platform() {
+    local os_name
+    os_name=$(uname -s)
+    case "$os_name" in
+        Linux)
+            PLATFORM="linux"
+            ;;
+        Darwin)
+            PLATFORM="mac"
+            ;;
+        *)
+            echo "Error: Unsupported operating system: $os_name" >&2
+            exit 1
+            ;;
+    esac
+}
 
 get_access_token() {
     get_token_url="$ANALYZE_URL/api/v2-0/get-access-token"
     get_access_token_response=""
 
-    if should_use_proxy; then
-        if should_use_proxy_credentials; then
-            proxy_args="--proxy-user $PROXY_USER:$PROXY_PASSWORD"
-        else
-            proxy_args="--proxy $PROXY_URL"
+    if command -v curl >/dev/null 2>&1; then
+        if should_use_proxy; then
+            if should_use_proxy_credentials; then
+                proxy_args="--proxy-user $PROXY_USER:$PROXY_PASSWORD"
+            else
+                proxy_args="--proxy $PROXY_URL"
+            fi
         fi
+        get_access_token_response=$(curl ${proxy_args} -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
+    elif command -v wget >/dev/null 2>&1; then
+        if should_use_proxy; then
+            if should_use_proxy_credentials; then
+                proxy_args="--proxy-user=$PROXY_USER --proxy-password=$PROXY_PASSWORD"
+                get_access_token_response=$(https_proxy=$PROXY_URL wget $proxy_args -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
+            fi
+        else
+            get_access_token_response=$(wget -q -O - "$get_token_url" --header="Content-Type: application/json" --post-data="{\"api_key\":\"$INTEZER_API_KEY\"}")
+        fi
+    else
+        echo "Error: Neither curl nor wget is installed. Please install either of them." >&2
+        exit 1
     fi
-    get_access_token_response=$(curl ${proxy_args} -s -X POST "$get_token_url" -H "Content-Type: application/json" -d "{\"api_key\":\"$INTEZER_API_KEY\"}")
 
     access_token=$(echo "$get_access_token_response" | grep -o '"result":"[^"]*' | sed 's/"result":"//')
 
@@ -51,8 +84,42 @@ should_use_proxy_credentials() {
     [ -n "$PROXY_USER" ] && [ -n "$PROXY_PASSWORD" ]
 }
 
-download_scanner() {
-    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/mac"
+get_with_wget() {
+    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
+    # First wget command to get the redirected URL (without following it)
+    redirect_url=$(wget --method GET --timeout=0 --max-redirect=0 --header "Authorization: Bearer $JWT_TOKEN" "$scanner_download_url" 2>&1 | grep -i Location | sed -e 's/Location: //')
+
+    # Remove whitespace from redirect_url
+    redirect_url=$(echo "$redirect_url" | cut -d ' ' -f 1)
+
+    # Check if the redirect URL is empty
+    if [ -z "$redirect_url" ]; then
+        echo "No redirect URL found."
+        exit 1
+    fi
+
+    # Second wget command to download the file from the redirected URL
+    if should_use_proxy; then
+        if should_use_proxy_credentials; then
+            https_proxy=$PROXY_URL wget --proxy-user="$PROXY_USER" --proxy-password="$PROXY_PASSWORD" "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
+        else
+            https_proxy=$PROXY_URL wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
+        fi
+    else
+        wget "$redirect_url" -O "$SCANNER_DOWNLOAD_PATH"
+    fi
+
+    if [ $? -eq 0 ]; then
+        chmod +x "$SCANNER_DOWNLOAD_PATH"
+        echo "Download completed successfully."
+    else
+        echo "Download failed."
+        exit 1
+    fi
+}
+
+get_with_curl() {
+    scanner_download_url="$ANALYZE_URL/api/v2-0/endpoint-scanner/download/$PLATFORM"
     local http_code
 
     if should_use_proxy; then
@@ -184,6 +251,7 @@ ensure_root() {
 
 main() {
     ensure_root
+    detect_platform
     parse_args "$@"
     ensure_key
     rm -f "$SCANNER_DOWNLOAD_PATH"
@@ -191,7 +259,14 @@ main() {
     chmod 700 "$SCANNER_DOWNLOAD_PATH"
 
     JWT_TOKEN=$(get_access_token)
-    download_scanner
+    if command -v curl >/dev/null 2>&1; then
+        get_with_curl
+    elif command -v wget >/dev/null 2>&1; then
+        get_with_wget
+    else
+        echo "Error: Neither curl nor wget is installed. Please install either of them." >&2
+        exit 1
+    fi
     run_scanner
     rm -f "$SCANNER_DOWNLOAD_PATH"
 }
