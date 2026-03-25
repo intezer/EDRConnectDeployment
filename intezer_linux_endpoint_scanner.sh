@@ -1,4 +1,12 @@
 #!/bin/bash
+
+
+# ******************************************************************************************************
+#  NOTICE: This script is deprecated and kept here for temporarily for backward compatibility
+#  Find the new and updated script here: https://github.com/intezer/EDRConnectDeployment/blob/main/intezer_endpoint_scanner.sh
+# ******************************************************************************************************
+
+
 # Intezer Linux Endpoint Scanner Script 
 # Version 1.0.1
 #
