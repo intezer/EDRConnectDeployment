@@ -14,7 +14,7 @@ PROXY_URL=""
 PROXY_USER=""
 PROXY_PASSWORD=""
 JWT_TOKEN=""
-SCANNER_DOWNLOAD_PATH="./intezer-scanner"
+SCANNER_DOWNLOAD_PATH="/tmp/intezer-scanner"
 LOGS_DIR=""
 SOURCE=""
 ENDPOINT_ANALYSIS_ID=""
@@ -243,14 +243,15 @@ ensure_root() {
 cleanup() { rm -f "$SCANNER_DOWNLOAD_PATH"; }
 
 main() {
+    cd /tmp
     ensure_root
     detect_platform
     parse_args "$@"
     ensure_key
-    rm -f "$SCANNER_DOWNLOAD_PATH"
+    trap cleanup EXIT
+    
     touch "$SCANNER_DOWNLOAD_PATH"
     chmod 700 "$SCANNER_DOWNLOAD_PATH"
-    trap cleanup EXIT
 
     JWT_TOKEN=$(get_access_token)
     if command -v curl >/dev/null 2>&1; then
