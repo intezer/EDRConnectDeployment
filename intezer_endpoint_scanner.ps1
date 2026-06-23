@@ -3,6 +3,7 @@ param(
     [string]$EndpointAnalysisId,
     [string]$LogFolder,
     [string]$Url = "https://analyze.intezer.com",
+    [string]$Source,
     [switch]$Help
 )
 
@@ -14,8 +15,9 @@ function Show-Help {
     "  -EndpointAnalysisId  Optional. Specifies the Endpoint Analysis ID."
     "  -LogFolder           Optional. Specifies the log file's folder."
     "  -Url                 Optional. Specifies the Intezer base URL. Default: https://analyze.intezer.com"
+    "  -Source              Optional. Specifies the source that triggered the scan."
     "  -Help                Displays this help message."
-    "  <json_object>        Specifies a JSON object with 'api_key' and optionally 'endpoint_analysis_id', 'log_folder' and 'url'."
+    "  <json_object>        Specifies a JSON object with 'api_key' and optionally 'endpoint_analysis_id', 'log_folder', 'url' and 'source'."
     "  <api_key>            Specifies the API key as a positional argument."
     "  <endpoint_analysis_id> Optional. Specifies the Endpoint Analysis ID as a second positional argument."
     exit
@@ -39,6 +41,7 @@ if (-not $PSBoundParameters.ContainsKey('ApiKey')) {
             $ApiKey = $JsonObject.api_key
             $EndpointAnalysisId = $JsonObject.endpoint_analysis_id
             $LogFolder = $JsonObject.log_folder
+            $Source = $JsonObject.source
             if ($JsonObject.url) {
                 $Url = $JsonObject.url
             }
@@ -90,6 +93,10 @@ $ArgumentList = @("-k", $ApiKey, "-l", $LogFolder, "-n", "-u", $Url)
 
 if (![string]::IsNullOrEmpty($EndpointAnalysisId)) {
     $ArgumentList += @("-i", $EndpointAnalysisId)
+}
+
+if (![string]::IsNullOrEmpty($Source)) {
+    $ArgumentList += @("-s", $Source)
 }
 
 $process = Start-Process -FilePath $ScannerFilePath -NoNewWindow -ArgumentList $ArgumentList -PassThru
