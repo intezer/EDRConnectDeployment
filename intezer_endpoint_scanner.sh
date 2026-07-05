@@ -1,6 +1,6 @@
 #!/bin/bash
 # Intezer Endpoint Scanner Script
-# Version 1.0.0
+# Version 1.0.1
 #
 # This script downloads the Intezer Endpoint Scanner and runs it.
 # It requires an Intezer API key as an argument.
@@ -14,7 +14,7 @@ PROXY_URL=""
 PROXY_USER=""
 PROXY_PASSWORD=""
 JWT_TOKEN=""
-SCANNER_DOWNLOAD_PATH="/tmp/intezer-scanner"
+SCANNER_DOWNLOAD_PATH=""
 LOGS_DIR=""
 SOURCE=""
 ENDPOINT_ANALYSIS_ID=""
@@ -171,7 +171,12 @@ run_scanner() {
         cmd+=(-u "$ANALYZE_URL")
     fi
 
-    "${cmd[@]}"
+    # keep the parent's EXIT trap from deleting the scanner we're about to launch
+    trap - EXIT
+    # detach so the scan outlives the EDR session running this script
+    nohup bash -c 'trap "rm -f \"$1\"" EXIT; "$@"' scanner "${cmd[@]}" >/dev/null 2>&1 &
+    disown
+    echo "Scanner started in the background."
 }
 
 parse_args() {
@@ -240,7 +245,8 @@ ensure_root() {
     fi
 }
 
-cleanup() { rm -f "$SCANNER_DOWNLOAD_PATH"; }
+# Used by the script to cleanup if something goes wrong. Scanner's nohup execution has its own cleanup.
+cleanup() { [ -n "$SCANNER_DOWNLOAD_PATH" ] && rm -f "$SCANNER_DOWNLOAD_PATH"; }
 
 main() {
     cd /tmp
@@ -250,7 +256,8 @@ main() {
     ensure_key
     trap cleanup EXIT
     
-    touch "$SCANNER_DOWNLOAD_PATH"
+    # unique path so overlapping scans don't collide
+    SCANNER_DOWNLOAD_PATH=$(mktemp /tmp/intezer-scanner.XXXXXXXX)
     chmod 700 "$SCANNER_DOWNLOAD_PATH"
 
     JWT_TOKEN=$(get_access_token)
