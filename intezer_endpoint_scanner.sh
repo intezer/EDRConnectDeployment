@@ -1,10 +1,10 @@
 #!/bin/bash
 # Intezer Endpoint Scanner Script
-# Version 1.0.0
+# Version 1.1.0
 #
 # This script downloads the Intezer Endpoint Scanner and runs it.
 # It requires an Intezer API key as an argument.
-# The script will download the scanner to the current directory and execute it, then delete the scanner.
+# The script will download the scanner to the download directory and execute it, then delete the scanner.
 # Supports Linux and macOS (detected automatically via uname).
 
 set -eo pipefail
@@ -14,7 +14,8 @@ PROXY_URL=""
 PROXY_USER=""
 PROXY_PASSWORD=""
 JWT_TOKEN=""
-SCANNER_DOWNLOAD_PATH="/tmp/intezer-scanner"
+SCANNER_DOWNLOAD_DIR="/tmp"
+SCANNER_DOWNLOAD_PATH=""
 LOGS_DIR=""
 SOURCE=""
 ENDPOINT_ANALYSIS_ID=""
@@ -197,6 +198,11 @@ parse_args() {
             PROXY_PASSWORD="$2"
             shift 2
             ;;
+            -d|--download-dir)
+            [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
+            SCANNER_DOWNLOAD_DIR="$2"
+            shift 2
+            ;;
             -l|--logs-dir)
             [ $# -ge 2 ] || { echo "Error: $1 requires a value" >&2; exit 1; }
             LOGS_DIR="$2"
@@ -243,13 +249,16 @@ ensure_root() {
 cleanup() { rm -f "$SCANNER_DOWNLOAD_PATH"; }
 
 main() {
-    cd /tmp
     ensure_root
     detect_platform
     parse_args "$@"
     ensure_key
+
+    mkdir -p "$SCANNER_DOWNLOAD_DIR"
+    cd "$SCANNER_DOWNLOAD_DIR"
+    SCANNER_DOWNLOAD_PATH="$PWD/intezer-scanner"
     trap cleanup EXIT
-    
+
     touch "$SCANNER_DOWNLOAD_PATH"
     chmod 700 "$SCANNER_DOWNLOAD_PATH"
 
