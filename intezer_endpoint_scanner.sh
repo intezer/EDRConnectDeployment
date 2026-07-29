@@ -247,8 +247,6 @@ ensure_root() {
 }
 
 ensure_first_attempt() {
-    # An EDR may kill a long-running scan and re-run this script with the same arguments;
-    # the scan log left by the first attempt marks the analysis as already attempted.
     if [ -n "$LOGS_DIR" ] && [ -n "$ENDPOINT_ANALYSIS_ID" ] && [ -f "$LOGS_DIR/scan_$ENDPOINT_ANALYSIS_ID.log" ]; then
         echo "Error: Scan $ENDPOINT_ANALYSIS_ID was already attempted on this host, refusing to retry." >&2
         exit 1
@@ -265,7 +263,6 @@ main() {
 
     mkdir -p "$SCANNER_DOWNLOAD_DIR"
     cd "$SCANNER_DOWNLOAD_DIR"
-    # After the cd, so a relative logs dir resolves to the same path the scanner runs with.
     ensure_first_attempt
     SCANNER_DOWNLOAD_PATH="$PWD/intezer-scanner"
     trap cleanup EXIT
