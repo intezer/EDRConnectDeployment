@@ -262,10 +262,11 @@ main() {
     detect_platform
     parse_args "$@"
     ensure_key
-    ensure_first_attempt
 
     mkdir -p "$SCANNER_DOWNLOAD_DIR"
     cd "$SCANNER_DOWNLOAD_DIR"
+    # After the cd, so a relative logs dir resolves to the same path the scanner runs with.
+    ensure_first_attempt
     SCANNER_DOWNLOAD_PATH="$PWD/intezer-scanner"
     trap cleanup EXIT
 
