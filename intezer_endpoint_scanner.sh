@@ -1,6 +1,6 @@
 #!/bin/bash
 # Intezer Endpoint Scanner Script
-# Version 1.1.0
+# Version 1.2.0
 #
 # This script downloads the Intezer Endpoint Scanner and runs it.
 # It requires an Intezer API key as an argument.
@@ -246,6 +246,15 @@ ensure_root() {
     fi
 }
 
+ensure_first_attempt() {
+    # An EDR may kill a long-running scan and re-run this script with the same arguments;
+    # the scan log left by the first attempt marks the analysis as already attempted.
+    if [ -n "$LOGS_DIR" ] && [ -n "$ENDPOINT_ANALYSIS_ID" ] && [ -f "$LOGS_DIR/scan_$ENDPOINT_ANALYSIS_ID.log" ]; then
+        echo "Error: Scan $ENDPOINT_ANALYSIS_ID was already attempted on this host, refusing to retry." >&2
+        exit 1
+    fi
+}
+
 cleanup() { rm -f "$SCANNER_DOWNLOAD_PATH"; }
 
 main() {
@@ -253,6 +262,7 @@ main() {
     detect_platform
     parse_args "$@"
     ensure_key
+    ensure_first_attempt
 
     mkdir -p "$SCANNER_DOWNLOAD_DIR"
     cd "$SCANNER_DOWNLOAD_DIR"
